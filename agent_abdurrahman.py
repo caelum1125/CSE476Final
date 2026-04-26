@@ -23,7 +23,7 @@ import json
 from pathlib import Path
 from typing import Any, Dict, List
 
-API_KEY  = os.getenv("OPENAI_API_KEY", "sk-BsN4cnHCvKX0N8yo6C2maA")
+API_KEY  = os.getenv("OPENAI_API_KEY", "sk-yourkeyhere")
 API_BASE = os.getenv("API_BASE", "https://openai.rc.asu.edu/v1")
 MODEL    = os.getenv("MODEL_NAME", "qwen3-30b-a3b-instruct-2507")
 
