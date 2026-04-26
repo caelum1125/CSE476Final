@@ -40,7 +40,7 @@ def call_model_chat_completions(prompt: str,
             text = data.get("choices", [{}])[0].get("message", {}).get("content", "")
             return {"ok": True, "text": text, "raw": data, "status": status, "error": None, "headers": hdrs}
         else:
-            # try best-effort to surface error text
+
             err_text = None
             try:
                 err_text = resp.json()

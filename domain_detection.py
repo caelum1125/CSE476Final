@@ -42,9 +42,6 @@ def _count_hits(text, phrases):
 def detect_planning_subtype(text: str) -> str:
     t = text.lower().strip()
 
-    # --------------------------------------------------
-    # 1) Blocks world
-    # --------------------------------------------------
     blocks_markers = [
         "pick up a block",
         "unstack a block",
@@ -64,9 +61,6 @@ def detect_planning_subtype(text: str) -> str:
     ):
         return "blocks_world"
 
-    # --------------------------------------------------
-    # 2) Depot logistics with hoists / crates / pallets
-    # --------------------------------------------------
     depot_markers = [
         "depot", "distributor", "hoist", "crate", "pallet", "truck",
         "lift a crate", "drop a crate", "load a crate", "unload a crate",
@@ -77,9 +71,6 @@ def detect_planning_subtype(text: str) -> str:
     if depot_hits >= 5 and _contains_any(t, ["hoist", "crate", "pallet", "depot"]):
         return "depot_logistics"
 
-    # --------------------------------------------------
-    # 3) Air cargo / transport with trucks + airplanes + cities
-    # --------------------------------------------------
     air_markers = [
         "package", "truck", "airplane", "airport", "city", "cities",
         "load a package into a truck", "load a package into an airplane",
@@ -91,10 +82,6 @@ def detect_planning_subtype(text: str) -> str:
     if air_hits >= 5 and _contains_any(t, ["airplane", "airport", "fly an airplane"]):
         return "air_cargo_logistics"
 
-    # --------------------------------------------------
-    # 4) Abstract operator planning
-    # Catch synthetic verb domains and explicit operator schemas
-    # --------------------------------------------------
     abstract_markers = [
         "here are the actions i can do",
         "the following restrictions on my actions",
@@ -120,9 +107,6 @@ def detect_planning_subtype(text: str) -> str:
     if abstract_hits >= 5:
         return "abstract_operator_planning"
 
-    # --------------------------------------------------
-    # Fallbacks
-    # --------------------------------------------------
     if _contains_any(t, ["block", "on top of", "on the table", "hand is empty"]):
         return "blocks_world"
 
@@ -173,9 +157,6 @@ def _count_hits(text, phrases):
 def detect_future_prediction_subtype(text: str) -> str:
     t = text.lower().strip()
 
-    # --------------------------------------------------
-    # 1) Binary yes/no forecasts
-    # --------------------------------------------------
     yes_no_markers = [
         r"\boxed{yes} or \boxed{no}",
         "will ",
@@ -189,9 +170,6 @@ def detect_future_prediction_subtype(text: str) -> str:
     if _contains_any(t, [r"\boxed{yes} or \boxed{no}"]):
         return "binary_outcome_forecast"
 
-    # --------------------------------------------------
-    # 2) Multiple-choice boxed forecasts
-    # --------------------------------------------------
     mc_markers = [
         "a.  the outcome be",
         "b.  the outcome be",
@@ -201,15 +179,12 @@ def detect_future_prediction_subtype(text: str) -> str:
         r"\boxed{b, c}"
     ]
     if _contains_any(t, mc_markers):
-        # Sports head-to-head with labeled outcomes
+
         if _contains_any(t, [" vs. ", "tour de france", "eisners", "cpi in july", "tweet likes"]):
             if " vs. " in t:
                 return "sports_match_forecast"
             return "multiple_choice_forecast"
 
-    # --------------------------------------------------
-    # 3) Sports match / rider / race comparisons
-    # --------------------------------------------------
     sports_markers = [
         " vs. ",
         "tour de france",
@@ -224,9 +199,6 @@ def detect_future_prediction_subtype(text: str) -> str:
     if sports_hits >= 2:
         return "sports_match_forecast"
 
-    # --------------------------------------------------
-    # 4) Ranked list / leaderboard / top-k forecasts
-    # --------------------------------------------------
     ranked_markers = [
         "前3名", "前五", "前十名", "top 3", "top 5", "top 10",
         "排名前五", "排名前三", "日榜", "排行榜", "榜第一名",
@@ -248,9 +220,6 @@ def detect_future_prediction_subtype(text: str) -> str:
     if ranked_hits >= 2:
         return "ranked_list_forecast"
 
-    # --------------------------------------------------
-    # 5) Numeric market forecasts
-    # --------------------------------------------------
     market_markers = [
         "收盘价", "开盘价", "当日最高点", "股票", "总市值", "市价总值",
         "指数", "hang seng", "aapl", "sz：", "sh：", "沪深300", "日经平均股价指数",
@@ -261,9 +230,6 @@ def detect_future_prediction_subtype(text: str) -> str:
     if market_hits >= 2:
         return "numeric_market_forecast"
 
-    # --------------------------------------------------
-    # 6) Numeric metric forecasts
-    # --------------------------------------------------
     metric_markers = [
         "价格是多少", "平均价格", "指数是多少", "是多少元/公斤", "第一个数字是多少",
         "占有率是%多少", "热度是多少万", "gross是多少美元", "number of riders finishing",
@@ -275,9 +241,6 @@ def detect_future_prediction_subtype(text: str) -> str:
     if metric_hits >= 2:
         return "numeric_metric_forecast"
 
-    # --------------------------------------------------
-    # 7) Fallbacks
-    # --------------------------------------------------
     if _contains_any(t, ["前3名", "前五", "前十名", "榜第一名", "排行榜", "日榜"]):
         return "ranked_list_forecast"
 
@@ -337,9 +300,6 @@ def _count_hits(text, phrases):
 def detect_coding_subtype(text: str) -> str:
     t = text.lower().strip()
 
-    # --------------------------------------------------
-    # 1) Web / API / scraping / networked app behavior
-    # --------------------------------------------------
     web_markers = [
         "api", "url", "http", "https", "requests", "urllib", "fetch",
         "html", "anchor tags", "scrape", "scrapes", "web page", "webpage",
@@ -351,9 +311,6 @@ def detect_coding_subtype(text: str) -> str:
     if web_hits >= 2:
         return "web_api_scraping"
 
-    # --------------------------------------------------
-    # 2) ML / stats / forecasting
-    # --------------------------------------------------
     ml_markers = [
         "linear regression", "kmeans", "pca", "principal component",
         "arima", "forecast", "forecasting", "chi-square", "chi square",
@@ -366,9 +323,6 @@ def detect_coding_subtype(text: str) -> str:
     if ml_hits >= 1:
         return "ml_stats_forecasting"
 
-    # --------------------------------------------------
-    # 3) Text / JSON / regex processing
-    # --------------------------------------------------
     text_markers = [
         "json string", "json-formatted", "json", "regex", "regular expression",
         "remove punctuation", "lowercase", "word frequency", "split into words",
@@ -383,9 +337,6 @@ def detect_coding_subtype(text: str) -> str:
     if text_hits >= 2:
         return "text_json_regex_processing"
 
-    # --------------------------------------------------
-    # 4) DataFrame / tabular processing
-    # --------------------------------------------------
     df_markers = [
         "dataframe", "pandas", "pd.", "csv", "sqlite", "sql query",
         "table", "columns", "grouped by", "groupby", "crosstab",
@@ -399,10 +350,6 @@ def detect_coding_subtype(text: str) -> str:
     if df_hits >= 2:
         return "dataframe_tabular_processing"
 
-    # --------------------------------------------------
-    # 5) Visualization / plotting
-    # Only when plotting is the main ask
-    # --------------------------------------------------
     viz_markers = [
         "plot", "plots", "chart", "graph", "heatmap", "histogram",
         "scatter plot", "pairplot", "pair plot", "pie chart",
@@ -414,10 +361,6 @@ def detect_coding_subtype(text: str) -> str:
     if viz_hits >= 2:
         return "visualization_plotting"
 
-    # --------------------------------------------------
-    # 6) Filesystem / OS operations
-    # Lower priority because many tasks touch files incidentally
-    # --------------------------------------------------
     fs_markers = [
         "directory", "directories", "file", "files", "folder", "path",
         "os.walk", "glob", "shutil", "subprocess", "tar", "archive",
@@ -432,9 +375,6 @@ def detect_coding_subtype(text: str) -> str:
     ):
         return "filesystem_os_ops"
 
-    # --------------------------------------------------
-    # 7) Fallback utility
-    # --------------------------------------------------
     return "algorithmic_utility"
     
 NUMBER_WORDS = {
@@ -449,9 +389,6 @@ def looks_like_math(text: str) -> bool:
     raw = text
     t = text.lower()
 
-    # --------------------------------------------------
-    # Hard exclusions — these belong to other domains
-    # --------------------------------------------------
     anti_markers = [
         "you should write self-contained code starting with:",
         "def task_func(",
@@ -472,9 +409,6 @@ def looks_like_math(text: str) -> bool:
     if any(m in t for m in anti_markers):
         return False
 
-    # --------------------------------------------------
-    # Symbolic / formal math cues
-    # --------------------------------------------------
     symbolic_markers = [
         "$", "\\[", "\\]", "\\frac", "\\sqrt", "\\triangle", "\\angle",
         "\\sin", "\\cos", "\\tan", "\\log", "\\binom", "\\overline",
@@ -483,9 +417,6 @@ def looks_like_math(text: str) -> bool:
         "greatest common divisor"
     ]
 
-    # --------------------------------------------------
-    # Explicit math-topic cues
-    # --------------------------------------------------
     topic_markers = [
         "integer", "integers", "positive integer", "prime", "factor",
         "probability", "ratio", "percent", "percentage",
@@ -497,9 +428,6 @@ def looks_like_math(text: str) -> bool:
         "divisors", "multiple", "least", "greatest", "smallest", "largest",
     ]
 
-    # --------------------------------------------------
-    # Arithmetic / word-problem operation cues
-    # --------------------------------------------------
     operation_markers = [
         "each", "every", "altogether", "total", "remaining", "left",
         "shared equally", "equally", "split", "divide", "divided",
@@ -511,7 +439,7 @@ def looks_like_math(text: str) -> bool:
         "pound", "pounds", "kilogram", "kilograms",
         "cup", "cups", "slice", "slices", "page", "pages",
         "dollar", "dollars", "$", "%",
-        # added — catches GSM8K problems missed before
+
         "apples", "oranges", "candies", "cookies", "bags", "boxes",
         "bottles", "cans", "eggs", "birds", "cats", "dogs", "fish",
         "marbles", "stickers", "toys", "trees", "flowers",
@@ -522,9 +450,6 @@ def looks_like_math(text: str) -> bool:
         "paint", "painted", "fence", "monkeys", "pile",
     ]
 
-    # --------------------------------------------------
-    # Question-style cues
-    # --------------------------------------------------
     question_markers = [
         "how many", "how much", "find", "compute", "determine", "what is the",
         "how far", "how long", "how fast", "how old",
@@ -542,25 +467,22 @@ def looks_like_math(text: str) -> bool:
     has_equals       = "=" in raw
     has_coords       = bool(re.search(r"\(\s*-?\d+\s*,\s*-?\d+\s*\)", raw))
 
-    # --------------------------------------------------
-    # Decision rules — ordered strongest to weakest
-    # --------------------------------------------------
 
-    # Strong symbolic / competition math
+
     if symbolic_hits >= 2:
         return True
     if symbolic_hits >= 1 and (topic_hits >= 1 or has_equals or has_coords):
         return True
 
-    # Plain-English arithmetic / counting / rate / ratio
+
     if has_number_like and q_hits >= 1 and (topic_hits >= 1 or op_hits >= 2):
         return True
 
-    # Short number-theory / combinatorics style
+
     if has_number_like and topic_hits >= 2:
         return True
 
-    # GSM8K style — numbers + operation context alone is enough
+
     if has_number_like and op_hits >= 3:
         return True
 
@@ -575,18 +497,10 @@ def _count_hits(text, phrases):
 def detect_math_subtype(text: str) -> str:
     t = text.lower().strip()
 
-    # --------------------------------------------------
-    # has_latex: True only for real math LaTeX.
-    # Bare dollar amounts like "$100", "$1750" must NOT qualify —
-    # only math variables ($x, $n) and backslash commands count.
-    # --------------------------------------------------
     has_latex_command = bool(re.search(r'\\\w+|\\\[|\\\]|\\begin', text))
-    has_math_dollar   = bool(re.search(r'\$[^0-9\s$.]', text))  # $x, $n — not $100
+    has_math_dollar   = bool(re.search(r'\$[^0-9\s$.]', text))
     has_latex = has_latex_command or has_math_dollar
 
-    # --------------------------------------------------
-    # 1) Geometry
-    # --------------------------------------------------
     geometry_markers = [
         "triangle", "\\triangle", "quadrilateral", "pentagon", "hexagon",
         "circle", "chord", "tangent", "radius", "diameter", "perimeter",
@@ -602,23 +516,16 @@ def detect_math_subtype(text: str) -> str:
     if geometry_hits >= 2:
         return "geometry"
 
-    # --------------------------------------------------
-    # 2) Sequence / recursive / functional
-    # Ambiguous token markers (a_n, f(x), etc.) are gated
-    # behind has_latex to prevent substring matches inside
-    # plain-English words ("can", "than", "plan" contain "a_n").
-    # k-th variants cover the LaTeX spaced form "$k$ -th".
-    # --------------------------------------------------
     seq_markers_always = [
         "sequence", "define a sequence", "recursively",
         "x_{n+1}", "\\begin{cases}", "piecewise",
         "define a sequence as follows",
         "k-th centimeter", "k-th picket", "k-th term",
-        "k$ -th", "k$-th",                              # LaTeX: "$k$ -th centimeter"
-        "a_1 = 2", "a_1 = 5", "a_2 = 2", "a_2 = 5",   # explicit indexed-term assignments
+        "k$ -th", "k$-th",
+        "a_1 = 2", "a_1 = 5", "a_2 = 2", "a_2 = 5",
     ]
     seq_markers_latex_only = [
-        # Valid seq tokens but unsafe as plain-text substrings
+
         "x_1", "x_{n+1}", "a_0", "a_1", "a_2", "a_n", "b_n", "s_n",
         "let s_n", "let d(x)", "f(x)",
         "smallest n such that", "indexed so that",
@@ -641,13 +548,6 @@ def detect_math_subtype(text: str) -> str:
     if seq_hits >= 1 and seq_confirm:
         return "sequence_recursive_functional"
 
-    # --------------------------------------------------
-    # 3) Counting / probability
-    # Strong single signals route immediately before the
-    # scored cp_markers list, catching dice/coin problems
-    # that would otherwise leak into number theory via
-    # "multiple of" or "remainder".
-    # --------------------------------------------------
     if _contains_any(t, [
         "probability", "randomly", "equally likely",
         "fair coin", "fair die", "fair dice",
@@ -690,14 +590,6 @@ def detect_math_subtype(text: str) -> str:
     ]):
         return "counting_probability"
 
-    # --------------------------------------------------
-    # 4) Equation / expression manipulation
-    # Runs BEFORE number theory so "relatively prime" in
-    # competition answer format doesn't drag equation
-    # problems into NT.
-    # "is a factor of" replaces bare "factor of" to avoid
-    # matching "prime factor of the integer".
-    # --------------------------------------------------
     eq_markers = [
         "equation", "roots", "root", "real root", "real roots",
         "system of equations", "satisfy the equations", "polynomial",
@@ -711,13 +603,6 @@ def detect_math_subtype(text: str) -> str:
     if eq_hits >= 1:
         return "equation_expression_manipulation"
 
-    # --------------------------------------------------
-    # 5) Number theory / digits / divisibility
-    # "prime" excluded from nt_markers — too many equation
-    # problems say "relatively prime". Handled via has_prime.
-    # Weak path (nt_hits == 1) requires has_latex to block
-    # plain GSM8K problems mentioning "digits" from landing here.
-    # --------------------------------------------------
     nt_markers = [
         "divisible", "remainder", "mod", "modulo",
         "prime factor", "prime factors",
@@ -742,9 +627,6 @@ def detect_math_subtype(text: str) -> str:
     if has_prime and nt_hits >= 1 and has_latex:
         return "number_theory_digit_divisibility"
 
-    # --------------------------------------------------
-    # 6) Analytic / symbolic
-    # --------------------------------------------------
     analytic_markers = [
         "graph of", "|x", "|y", "\\lfloor",
         "greatest integer that does not exceed",
@@ -754,10 +636,6 @@ def detect_math_subtype(text: str) -> str:
     if analytic_hits >= 1:
         return "analytic_symbolic_math"
 
-    # --------------------------------------------------
-    # 7) Arithmetic word problem
-    # Scored marker list for common story-problem vocabulary.
-    # --------------------------------------------------
     arithmetic_markers = [
         "dollars", "dollar", "cents", "budget", "spent", "cost",
         "earned", "earns", "hour", "hours", "minute", "minutes",
@@ -786,12 +664,6 @@ def detect_math_subtype(text: str) -> str:
     if not has_latex and arithmetic_hits >= 1:
         return "arithmetic_word_problem"
 
-    # --------------------------------------------------
-    # 8) Final safety net for no-LaTeX problems
-    # Any plain-English problem with a question verb and a
-    # number is almost certainly an arithmetic word problem —
-    # there are no non-LaTeX competition problems in this dataset.
-    # --------------------------------------------------
     has_question_verb = _contains_any(t, [
         "how many", "how much", "how far", "how long", "how fast",
         "calculate", "find the total", "what is the total",
@@ -821,9 +693,6 @@ def looks_like_common_sense(text: str) -> bool:
     raw = text
     t = " ".join(text.lower().split())
 
-    # --------------------------------------------------
-    # Hard exclusions for the three clean domains
-    # --------------------------------------------------
     anti_markers = [
         "you should write self-contained code starting with:",
         "def task_func(",
@@ -841,17 +710,11 @@ def looks_like_common_sense(text: str) -> bool:
     if any(m in t for m in anti_markers):
         return False
 
-    # --------------------------------------------------
-    # Explicit common-sense formats
-    # --------------------------------------------------
     if "what is the best answer for the question among these?" in t:
         return True
     if "answer the question using the context" in t:
         return True
 
-    # --------------------------------------------------
-    # Strong symbolic math exclusions
-    # --------------------------------------------------
     strong_math_markers = [
         "\\frac", "\\sqrt", "\\triangle", "\\angle", "\\sin", "\\cos", "\\tan",
         "\\log", "\\binom", "[asy]", "relatively prime", "in lowest terms",
@@ -863,9 +726,6 @@ def looks_like_common_sense(text: str) -> bool:
         return False
     if any(m in raw.lower() for m in strong_math_markers):
         return False
- # --------------------------------------------------
-    # Plain-English math question rejection
-    # --------------------------------------------------
     math_question_markers = [
         "integer", "integers", "whole-number", "divisor", "divisors",
         "greatest common factor", "least common multiple",
@@ -877,12 +737,9 @@ def looks_like_common_sense(text: str) -> bool:
     ]
     math_q_hits = count_phrase_hits(t, math_question_markers)
 
-    # if it looks like a plain-English math question, reject common_sense
+
     if (t.startswith("how many ") or t.startswith("what is ") or t.startswith("what power ")) and math_q_hits >= 1:
         return False
-    # --------------------------------------------------
-    # Arithmetic-story math suppression
-    # --------------------------------------------------
     arithmetic_markers = [
         "altogether", "remaining", "left", "total", "shared equally",
         "equally", "per hour", "per day", "per week", "per month", "per year",
@@ -898,18 +755,12 @@ def looks_like_common_sense(text: str) -> bool:
     has_number_word = any(phrase_hit(t, w) for w in NUMBER_WORDS)
     has_number_like = has_digit_number or has_number_word
 
-    # --------------------------------------------------
-    # Yes / no common-sense questions
-    # --------------------------------------------------
     yesno_starts = [
         "is ", "are ", "does ", "did ", "can ", "could ", "would ",
         "was ", "were ", "has ", "have ", "do ", "will ", "if "
     ]
     starts_yesno = any(t.startswith(s) for s in yesno_starts)
 
-    # --------------------------------------------------
-    # Question cues
-    # --------------------------------------------------
     wh_start = bool(re.match(
         r"^(which|who|what|where|when|why|how|in which|in what|approximately what percentage)\b", t
     ))
@@ -933,9 +784,6 @@ def looks_like_common_sense(text: str) -> bool:
     ]
     has_question_cue = wh_start or any(q in t for q in question_cues) or t.endswith("?")
 
-    # --------------------------------------------------
-    # Factual / entity bridge cues
-    # --------------------------------------------------
     factual_markers = [
         "named after", "based on", "first aired", "released in",
         "starred", "hosted", "directed", "written by", "performed",
@@ -962,27 +810,18 @@ def looks_like_common_sense(text: str) -> bool:
     ]
     factual_hits = count_phrase_hits(t, factual_markers)
 
-    # --------------------------------------------------
-    # Proper-noun density helps with factual bridge questions
-    # --------------------------------------------------
     named_entity_chunks = re.findall(
         r"\b(?:[A-Z][a-z]+|[A-Z]{2,})(?:\s+(?:[A-Z][a-z]+|[A-Z]{2,}))*",
         raw
     )
     ne_count = len(named_entity_chunks)
 
-    # --------------------------------------------------
-    # Early reject for arithmetic-style math stories
-    # --------------------------------------------------
     if not wh_start and has_number_like and arithmetic_hits >= 3:
         return False
 
     if has_number_like and arithmetic_hits >= 4 and "what is the best answer for the question among these?" not in t:
         return False
 
-    # --------------------------------------------------
-    # Decision rules
-    # --------------------------------------------------
     if starts_yesno and not (has_number_like and arithmetic_hits >= 3):
         return True
 
@@ -1000,18 +839,11 @@ def looks_like_common_sense(text: str) -> bool:
 def detect_common_sense_subtype(text: str) -> str:
     t = text.lower().strip()
 
-    # --------------------------------------------------
-    # 1) Multiple choice QA — must come FIRST
-    # These questions have numbered options to pick from
-    # --------------------------------------------------
     if re.search(r'what is the best answer.*among these', t) or \
        re.search(r'\n\s*0\)', text) or \
        re.search(r'\n\s*1\)', text):
         return "multiple_choice_qa"
 
-    # --------------------------------------------------
-    # 2) Context-grounded lookup
-    # --------------------------------------------------
     if _contains_any(t, [
         "answer the question using the context",
         "using the context",
@@ -1020,9 +852,6 @@ def detect_common_sense_subtype(text: str) -> str:
     ]):
         return "context_grounded_lookup"
 
-    # --------------------------------------------------
-    # 3) Shared attribute / connection
-    # --------------------------------------------------
     shared_markers = [
         "what profession does",
         "have in common",
@@ -1040,10 +869,6 @@ def detect_common_sense_subtype(text: str) -> str:
     if _contains_any(t, shared_markers):
         return "shared_attribute_or_connection"
 
-    # --------------------------------------------------
-    # 4) "Is X or Y the [superlative]..." — comparison disguised as boolean
-    # Must come BEFORE boolean check
-    # --------------------------------------------------
     if re.search(r'\bis\b.+\bor\b', t) and _contains_any(t, [
         "largest", "smallest", "oldest", "newest", "first",
         "more", "most", "longer", "shorter", "bigger", "founded",
@@ -1051,9 +876,6 @@ def detect_common_sense_subtype(text: str) -> str:
     ]):
         return "comparison_resolution"
 
-    # --------------------------------------------------
-    # 5) Boolean plausibility
-    # --------------------------------------------------
     boolean_starts = [
         "is ", "are ", "was ", "were ", "can ", "could ",
         "would ", "does ", "do ", "did ", "has ", "have ",
@@ -1062,9 +884,6 @@ def detect_common_sense_subtype(text: str) -> str:
     if any(t.startswith(prefix) for prefix in boolean_starts):
         return "boolean_plausibility"
 
-    # --------------------------------------------------
-    # 6) Comparison resolution
-    # --------------------------------------------------
     comparison_markers = [
         " or ",
         "born first",
@@ -1085,9 +904,6 @@ def detect_common_sense_subtype(text: str) -> str:
     if _contains_any(t, comparison_markers):
         return "comparison_resolution"
 
-    # --------------------------------------------------
-    # 7) Entity bridge lookup — default
-    # --------------------------------------------------
     return "entity_bridge_lookup"
     
 def detect_domain(text: str) -> str:

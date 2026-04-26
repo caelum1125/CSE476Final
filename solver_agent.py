@@ -30,7 +30,7 @@ from start_up import call_model_chat_completions
 
 def _normalize_expected(expected: str) -> str:
     """Extract the final answer from expected output strings."""
-    # GSM8K format: answer is after ####
+
     if "####" in expected:
         return expected.split("####")[-1].strip()
     return expected.strip()
@@ -46,7 +46,7 @@ def _normalize_answer(answer: str) -> str:
     answer = re.sub(r'\^\\circ', r'°', answer)
     answer = re.sub(r'\^{\\circ}', r'°', answer)
     answer = re.sub(r'\\circ', r'°', answer)
-    # strip \text{...} wrapper  ← NEW
+
     answer = re.sub(r'\\text\{([^}]+)\}', r'\1', answer)
     answer = re.sub(r'^[a-z]\s*=\s*', '', answer)
     answer = re.sub(r'\\[,;!~ ]', '', answer)
@@ -67,20 +67,20 @@ def grade(expected: str, predicted: str) -> bool:
 def _clean_answer(raw: str, problem: str) -> str:
     raw = raw.strip()
 
-    # 1. \boxed{...} — strongest signal
-    # Handles nested braces one level deep (e.g. \boxed{\frac{3}{56}})
+
+
     boxed = re.findall(r'\\boxed\{([^{}]*(?:\{[^{}]*\}[^{}]*)*)\}', raw)
     if boxed:
         return boxed[-1].strip()
 
-    # 2. Explicit "Final answer: X" line
+
     for line in reversed(raw.splitlines()):
         line = line.strip()
         m = re.match(r'(?i)final answer\s*[:\-]\s*(.+)', line)
         if m:
             return m.group(1).strip().rstrip('.')
 
-    # 3. "The answer is X" — short cap
+
     for line in reversed(raw.splitlines()):
         line = line.strip()
         m = re.match(
@@ -92,7 +92,7 @@ def _clean_answer(raw: str, problem: str) -> str:
 
     lines = [ln.strip() for ln in raw.splitlines() if ln.strip()]
 
-    # 4. Last standalone number or simple expression
+
     for line in reversed(lines):
         if re.fullmatch(r'-?\d+', line):
             return line
@@ -101,13 +101,13 @@ def _clean_answer(raw: str, problem: str) -> str:
         if re.fullmatch(r'-?\d+\s*/\s*-?\d+', line):
             return line
 
-    # 5. "= <number>" or "→ <number>" at end of line
+
     for line in reversed(lines):
         m = re.search(r'(?:=|→|:)\s*(\\boxed\{)?(-?[\d,]+(?:\.\d+)?)\}?\s*$', line)
         if m:
             return m.group(2).replace(',', '')
 
-    # 6. Last number following =, →, or : anywhere in full response
+
     all_numbers = re.findall(
         r'(?:=|→|:)\s*\\boxed\{(-?[\d,]+)\}|(?:=|→|:)\s*(-?[\d,]+)(?:\s|$)',
         raw
@@ -116,7 +116,7 @@ def _clean_answer(raw: str, problem: str) -> str:
         last = [b or a for a, b in all_numbers][-1]
         return last.replace(',', '')
 
-    # 7. Last line with no prose words that looks mathematical
+
     for line in reversed(lines):
         if re.search(r'\b(the|is|are|be|we|so|thus|therefore|and|or|of|a|an)\b',
                      line, re.IGNORECASE):
@@ -124,7 +124,7 @@ def _clean_answer(raw: str, problem: str) -> str:
         if len(line) < 80 and re.search(r'[\d\\\(\)\[\]\/\-\+\=\^]', line):
             return line
 
-    # 8. Last resort: do not invent an answer from unfinished work.
+
     return ""
 
 
@@ -206,7 +206,7 @@ def _self_consistency_raw(raw_responses: list, problem: str) -> str:
     normalised = [_normalize_answer(a) for a in extracted]
     counts = Counter(normalised)
     winner_norm, winner_count = counts.most_common(1)[0]
-    # No majority — fall back to greedy first response
+
     if winner_count == 1:
         return extracted[0]
     for orig, norm in zip(extracted, normalised):
@@ -417,9 +417,6 @@ def _prompt_analytic(problem):
     )
 
 
-# ---------------------------------------------------------------------------
-# 4.  VERIFICATION PASS  (with tiebreak retry on disagreement)
-# ---------------------------------------------------------------------------
 
 _SYS_VERIFY = """\
 You are an adversarial math verifier.
@@ -542,7 +539,7 @@ def _verify_with_retry(problem: str, candidate: str, sys_prompt: str, prompt_fn,
 
     debug_info["verdict"] = "DISAGREE_CONFIRMED"
 
-    # Verifier disagrees — run a tiebreak pass that sees both answers
+
     tiebreak_prompt = (
         f"Problem:\n{problem}\n\n"
         f"Two independent solutions gave different answers:\n"
@@ -571,24 +568,12 @@ def _verify_with_retry(problem: str, candidate: str, sys_prompt: str, prompt_fn,
             return (answer, debug_info) if debug else answer
         return (candidate, debug_info) if debug else candidate
 
-    # Tiebreak failed — preserve the original candidate.
+
     return (candidate, debug_info) if debug else candidate
 
 
 # ---------------------------------------------------------------------------
 # 5.  DISPATCH TABLE
-# ---------------------------------------------------------------------------
-# Columns: (system_prompt, prompt_fn, use_sc, sc_n, use_verify)
-#
-# Strategy rationale:
-#   arithmetic      sc=3        easy enough that sc resolves most errors
-#   geometry        verify      re-derivation catches setup/sign errors
-#   sequence        sc=3        period-finding benefits from multiple unrollings
-#   counting        sc=5        highest variance; majority vote most reliable
-#   number_theory   verify      modular errors caught well by re-derivation
-#   equation        sc=5+verify more samples for hard AIME algebra + tiebreak
-#   analytic        sc=3        heterogeneous bucket; sc handles variance
-# ---------------------------------------------------------------------------
 
 _DISPATCH = {
     "arithmetic_word_problem":          (_SYS_ARITHMETIC,    _prompt_arithmetic,    True,  3, False),
@@ -626,8 +611,8 @@ def solve_math(problem: str, subtype: str, debug: bool = False):
     }
 
     if use_sc and sc_n > 1:
-        # Always include one greedy (temp=0) pass for stability,
-        # then sc_n-1 stochastic passes for diversity
+
+
         raw_responses = []
         res = call_model_chat_completions(
             user_prompt,
@@ -745,38 +730,31 @@ def solve_math(problem: str, subtype: str, debug: bool = False):
     return answer
 
 
-# ---------------------------------------------------------------------------
-# REVISION NOTES (not implemented — for next iteration)
-# ---------------------------------------------------------------------------
-# 1. GRADER: "Japanese occupation" should match "World War II" — they refer to
-#    the same ending event in Korea. Could add a semantic equivalence list for
-#    known aliases like {"japanese occupation korea": "world war ii"}.
-#
-# 2. GRADER: The name subset match is too aggressive — "David Boren" matching
-#    "David Lyle Boren" is correct but "Dance and choreography" shouldn't match
-#    "dancer Gregory Hines". Add a max word count difference check:
-#    only apply subset match if len difference <= 2 words.
-#
-# 3. ENTITY BRIDGE: The grounding check _answer_grounded_in_context is
-#    rejecting correct answers when Wikipedia uses different phrasing.
-#    Consider lowering the threshold from 0.5 to 0.3 or removing it entirely
-#    since it's causing re-searches that don't help.
-#
-# 4. ENTITY BRIDGE: For questions about specific episodes/tracks/cast members,
-#    search the specific episode or album article not the show/band article.
-#    e.g. "Hate to Feel" → search "Dirt (Alice in Chains album)" not "Alice in Chains"
-#
-# 5. BOOLEAN: The refine pass is still flipping correct CoT answers on
-#    nuanced questions. Consider only using refine as a tiebreaker when
-#    CoT and direct disagree, not as a third vote.
-#
-# 6. MULTIPLE CHOICE: The grader needs to handle partial matches between
-#    the model's answer and the expected option text since expected answers
-#    drop articles and punctuation.
-# ---------------------------------------------------------------------------
 
 
-# ---------------------------------------------------------------------------
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 # GRADER
 # ---------------------------------------------------------------------------
 def grade_common_sense(expected: str, predicted: str) -> bool:
@@ -833,7 +811,7 @@ def grade_common_sense(expected: str, predicted: str) -> bool:
 
     exp_clean_words  = clean(exp).split()
     pred_clean_words = clean(pred).split()
-    # only apply name subset match if difference is small (revision note 2)
+
     if abs(len(exp_clean_words) - len(pred_clean_words)) <= 2:
         if len(exp_clean_words) <= len(pred_clean_words):
             if all(w in pred_clean_words for w in exp_clean_words):
@@ -861,9 +839,6 @@ def grade_common_sense(expected: str, predicted: str) -> bool:
     return False
 
 
-# ---------------------------------------------------------------------------
-# TOOL: Wikipedia lookup
-# ---------------------------------------------------------------------------
 def wikipedia_lookup(query: str, max_chars: int = 1800) -> str:
 
     def _fetch_summary(title: str) -> str:
@@ -1125,7 +1100,7 @@ def _extract_mc_options(problem: str) -> list:
 # ---------------------------------------------------------------------------
 def solve_common_sense(problem: str, subtype: str) -> dict:
 
-    # ── TECHNIQUE 7: CoT + SC + Refine for boolean ───────────────────────
+
     if subtype == "boolean_plausibility":
         raw_responses = []
 
@@ -1190,7 +1165,7 @@ def solve_common_sense(problem: str, subtype: str) -> dict:
             "raw_responses": raw_responses,
         }
 
-    # ── TECHNIQUE 8: Self-consistency for comparison ──────────────────────
+
     elif subtype == "comparison_resolution":
         raw_responses = []
         user_prompt   = f"Question: {problem}\n\nAnswer with only the correct option:"
@@ -1219,7 +1194,7 @@ def solve_common_sense(problem: str, subtype: str) -> dict:
             "raw_responses": raw_responses,
         }
 
-    # ── Context grounded — single pass ────────────────────────────────────
+
     elif subtype == "context_grounded_lookup":
         raw_responses = []
 
@@ -1243,12 +1218,12 @@ def solve_common_sense(problem: str, subtype: str) -> dict:
             "raw_responses": raw_responses,
         }
 
-    # ── TECHNIQUE 10: Multiple choice selection ───────────────────────────
+
     elif subtype == "multiple_choice_qa":
         raw_responses = []
         options = _extract_mc_options(problem)
 
-        # Call 1 — greedy pick
+
         res1 = call_model_chat_completions(
             f"{problem}\n\nReply with only the full text of the best answer option:",
             system=_SYS_MC,
@@ -1262,7 +1237,7 @@ def solve_common_sense(problem: str, subtype: str) -> dict:
         if res1["ok"] and res1["text"]:
             answer1 = res1["text"].strip().split("\n")[0].strip().rstrip(".,;:")
 
-        # Call 2 — SC sample at temp=0.3
+
         res2 = call_model_chat_completions(
             f"{problem}\n\nReply with only the full text of the best answer option:",
             system=_SYS_MC,
@@ -1276,19 +1251,19 @@ def solve_common_sense(problem: str, subtype: str) -> dict:
         if res2["ok"] and res2["text"]:
             answer2 = res2["text"].strip().split("\n")[0].strip().rstrip(".,;:")
 
-        # Majority vote — if both agree, use that; else trust greedy
+
         samples = [a for a in [answer1, answer2] if a]
         answer  = _sc_vote_cs(samples) if samples else answer1
 
-        # Snap to closest option if the answer doesn't exactly match one
+
         if options and answer:
             answer_lower = answer.lower()
-            # exact match first
+
             exact = next((o for o in options if o.lower() == answer_lower), None)
             if exact:
                 answer = exact
             else:
-                # partial match — find option with most word overlap
+
                 def overlap(opt):
                     opt_words = set(opt.lower().split())
                     ans_words = set(answer_lower.split())
@@ -1305,7 +1280,7 @@ def solve_common_sense(problem: str, subtype: str) -> dict:
             "raw_responses": raw_responses,
         }
 
-    # ── TECHNIQUE 9: ReAct + multi-candidate for entity bridge ───────────
+
     else:
         raw_responses = []
 
@@ -1443,7 +1418,7 @@ def solve_common_sense(problem: str, subtype: str) -> dict:
     
 # ---------------------------------------------------------------------------
 # FUTURE PREDICTION SOLVER
-# Inference-time technique: Self-consistency voting across multiple samples
+
 # ---------------------------------------------------------------------------
 
 _SYS_FUTURE_BASE = """\
@@ -1516,11 +1491,11 @@ def _extract_sports_outcome(text: str) -> str:
     """Extract HOME_WIN / DRAW / AWAY_WIN from model output."""
     if not text:
         return ""
-    # Check full text for keywords (HOME_WIN before AWAY_WIN to avoid partial match)
+
     for keyword in ("HOME_WIN", "AWAY_WIN", "DRAW"):
         if keyword in text.upper():
             return keyword
-    # Fallback: check last non-empty line
+
     lines = [l.strip() for l in text.splitlines() if l.strip()]
     if lines:
         last = lines[-1].upper()
@@ -1618,10 +1593,10 @@ def _sc_vote_sports(outcomes: list) -> str:
     counts = Counter(outcomes)
     max_count = max(counts.values())
     tied = [k for k, v in counts.items() if v == max_count]
-    # If there is a clear majority winner, return it directly
+
     if len(tied) == 1:
         return tied[0]
-    # Only use DRAW as tiebreak when genuinely tied
+
     for prefer in ("DRAW", "HOME_WIN", "AWAY_WIN"):
         if prefer in tied:
             return prefer
@@ -1638,7 +1613,7 @@ def solve_future_prediction(problem: str, subtype: str) -> dict:
     elif subtype == "sports_match_forecast":
         sys_prompt = _SYS_FUTURE_SPORTS
         n_samples  = 3
-        temp_list  = [0.3, 0.3, 0.5]  # avoid 0.0 to break HOME_WIN default lock
+        temp_list  = [0.3, 0.3, 0.5]
     elif subtype == "multiple_choice_forecast":
         sys_prompt = _SYS_FUTURE_MC
         n_samples  = 3
@@ -1648,13 +1623,13 @@ def solve_future_prediction(problem: str, subtype: str) -> dict:
         n_samples  = 3
         temp_list  = [0.0, 0.2, 0.4]
     else:
-        # media_chart_forecast, ranked_list_forecast
+
         sys_prompt = _SYS_FUTURE_BASE
         n_samples  = 2
         temp_list  = [0.0, 0.3]
 
     answers  = []
-    outcomes = []  # sports only
+    outcomes = []
     sports_prompt = _build_sports_prompt(problem) if subtype == "sports_match_forecast" else None
     for i in range(n_samples):
         temp = temp_list[i] if i < len(temp_list) else 0.3
@@ -1676,7 +1651,7 @@ def solve_future_prediction(problem: str, subtype: str) -> dict:
                 if ans:
                     answers.append(ans)
 
-    # ── Aggregate ─────────────────────────────────────────────────────────
+
     if subtype in ("numeric_market_forecast", "numeric_metric_forecast"):
         nums = []
         for a in answers:
@@ -1722,24 +1697,24 @@ def grade_future_prediction(expected: str, predicted: str) -> bool:
 
     pred = predicted.strip().lower()
 
-    # ── Binary Yes/No ──────────────────────────────────────────────────────
+
     if len(exp_list) == 1 and str(exp_list[0]).lower() in ("yes", "no"):
         return pred == str(exp_list[0]).lower()
 
-    # ── Single letter MC ───────────────────────────────────────────────────
+
     if len(exp_list) == 1 and re.match(r'^[a-f]$', str(exp_list[0]).lower()):
         pred_letters = re.findall(r'\b([a-f])\b', pred)
         if pred_letters:
             return pred_letters[0].lower() == str(exp_list[0]).lower()
         return pred == str(exp_list[0]).lower()
 
-    # ── Multi-letter MC ────────────────────────────────────────────────────
+
     if all(re.match(r'^[a-f]$', str(e).lower()) for e in exp_list):
         exp_letters  = set(str(e).lower() for e in exp_list)
         pred_letters = set(re.findall(r'\b([a-f])\b', pred))
         return exp_letters == pred_letters or exp_letters <= pred_letters
 
-    # ── Numeric ───────────────────────────────────────────────────────────
+
     if len(exp_list) == 1:
         try:
             exp_val  = float(exp_list[0])
@@ -1750,7 +1725,7 @@ def grade_future_prediction(expected: str, predicted: str) -> bool:
         except (ValueError, TypeError):
             pass
 
-    # ── List match (rankings, chart names) ────────────────────────────────
+
     exp_strs   = [str(e).lower().strip() for e in exp_list]
     pred_lower = predicted.lower()
 
@@ -1763,31 +1738,6 @@ def grade_future_prediction(expected: str, predicted: str) -> bool:
 
     return False
 
-# ---------------------------------------------------------------------------
-# OUTPUT FORMAT NOTES (from examples):
-#
-# blocks_world:         (pick-up red)  (put-down blue)  (unstack blue orange)  (stack red yellow)
-#                       → hyphenated verbs, full color/block names, no articles
-#
-# abstract_operator:    (feast b d)  (succumb b)  (attack a)  (overcome a d)
-#  - Attack/Feast/...   → lowercase action, just object letters (strip word "object")
-#  - paltry/sip/clip/…  → lowercase action, object_N abbreviated to oN
-#                          e.g. object_17 → o17
-#
-# depot_logistics:      (lift hoist2 crate2 crate1 depot2)
-#                       (load hoist2 crate2 truck2 depot2)
-#                       (drive truck2 depot2 depot0)
-#                       (unload hoist0 crate2 truck2 depot0)
-#                       (drop hoist0 crate2 pallet0 depot0)
-#                       → full names, no hyphens
-#
-# air_cargo:            (load-truck p2 t2 l2-0)  (drive-truck t0 l0-0 l0-1 c0)
-#                       (fly-airplane a0 l1-0 l0-0)  (unload-airplane p0 a0 l0-0)
-#                       (load-airplane p1 a0 l1-0)  (unload-truck p1 t1 l1-0)
-#                       → hyphenated verbs, abbreviated IDs:
-#                         package_N → pN, truck_N → tN,
-#                         location_X_Y → lX-Y, airplane_N → aN, city_N → cN
-# ---------------------------------------------------------------------------
 
 
 # ---------------------------------------------------------------------------
@@ -2906,9 +2856,6 @@ def _bind_fact_attack_static(template, obj_val, other_val):
     return result.strip()
 
 
-# ---------------------------------------------------------------------------
-# REVISED: Goal-directed choose-action system prompt
-# ---------------------------------------------------------------------------
 
 _SYS_CHOOSE_ACTION = """You are an AI planning assistant solving a planning problem step by step.
 
@@ -2967,7 +2914,7 @@ def _react_abstract(domain_rules, fewshot_stmt, fewshot_plan, question_stmt,
             numbered = "\n".join(f"{i+1}. {a}" for i, a in enumerate(valid_actions))
             unmet_str = "; ".join(unmet) if unmet else "none"
 
-            # Identify which valid actions directly produce a needed goal fact
+
             goal_producing = []
             for va in valid_actions:
                 fmt = _format_line(va, "abstract_operator_planning", is_paltry)
@@ -3002,7 +2949,7 @@ def _react_abstract(domain_rules, fewshot_stmt, fewshot_plan, question_stmt,
             })
 
             if not res["ok"] or not res["text"]:
-                # If we know goal-producing actions exist, pick first one
+
                 chosen_raw = goal_producing[0] if goal_producing else valid_actions[0]
             else:
                 llm_text = res["text"].strip()
@@ -3048,9 +2995,6 @@ def _react_abstract(domain_rules, fewshot_stmt, fewshot_plan, question_stmt,
     return plan_lines, raw_responses
 
 
-# ---------------------------------------------------------------------------
-# 7b.  ABSTRACT OPERATOR SCHEMA PARSER
-# ---------------------------------------------------------------------------
 
 def _parse_operator_schema(domain_rules: str) -> dict:
     schema = {}
@@ -3214,7 +3158,7 @@ def solve_planning(problem: str, subtype: str) -> dict:
         raw_responses.append({"kind": "deterministic_greedy_failed",
                                "response": {"ok": False, "text": "\n".join(plan_lines), "error": error}})
 
-    # ── Abstract domain ───────────────────────────────────────────────────────
+
     if subtype == "abstract_operator_planning":
         domain_rules, fewshot_stmt, fewshot_plan, question_stmt = _split_abstract_input(problem)
         schema = _parse_operator_schema(domain_rules)
@@ -3232,7 +3176,7 @@ def solve_planning(problem: str, subtype: str) -> dict:
                 return {"final_answer": best_plan_str, "subtype": subtype,
                         "technique": "react_step_by_step", "raw_responses": raw_responses}
 
-        # Reconstruct state after ReACT partial plan for context injection
+
         _react_state = AbstractState.from_statement(question_stmt)
         for _line in best_plan_lines:
             _react_state.apply_action(_line, schema, is_paltry)
@@ -3258,7 +3202,7 @@ def solve_planning(problem: str, subtype: str) -> dict:
 
         if res["ok"] and res["text"]:
             fmt = _process(res["text"])
-            # Prepend the verified partial plan to the fallback output
+
             full_fmt = best_plan_lines + [l for l in fmt if l not in best_plan_lines]
             valid, error, _ = _validate(full_fmt)
             if len(full_fmt) > len(best_plan_lines):
@@ -3285,7 +3229,7 @@ def solve_planning(problem: str, subtype: str) -> dict:
         return {"final_answer": best_plan_str, "subtype": subtype,
                 "technique": "react+fallback", "raw_responses": raw_responses}
 
-    # ── Non-abstract subtypes: whole-plan with self-refine ───────────────────
+
     def _process_response_text(text):
         return [f for f in (_format_line(l, subtype, is_paltry) for l in _extract_plan_lines(text)) if f]
 
@@ -3559,7 +3503,7 @@ _USE_EXACT_EXAMPLE_LOOKUP = os.getenv("USE_EXACT_EXAMPLE_LOOKUP", "0") == "1"
 _USE_EXAMPLE_RETRIEVAL = os.getenv("USE_EXAMPLE_RETRIEVAL", "0") == "1"
 _USE_WEB_RULE_BASED = os.getenv("USE_WEB_RULE_BASED", "0") == "1"
 _USE_WEB_FEW_SHOTS = os.getenv("USE_WEB_FEW_SHOTS", "0") == "1"
-_USE_CODING_SELF_REVIEW = os.getenv("USE_CODING_SELF_REVIEW", "0") == "1"  # disabled
+_USE_CODING_SELF_REVIEW = os.getenv("USE_CODING_SELF_REVIEW", "0") == "1"
 _STOPWORDS = {
     "the", "and", "for", "with", "from", "this", "that", "into", "then",
     "function", "should", "output", "write", "self", "contained", "code",
@@ -3878,11 +3822,10 @@ return app"""
     if "parses a json string" in t and "downloads the file" in t and "timestamped filename" in t:
         return """\
 data = json.loads(json_data)
-url = data[unknown_key]  # Assuming the key directly contains the URL
+url = data[unknown_key]
 
 response = requests.get(url)
 
-# Using datetime to include milliseconds in the timestamp
 timestamp = datetime.now().strftime("%Y%m%d%H%M%S%f")
 filename = f"{unknown_key}_{timestamp}.txt"
 save_dir = save_dir or os.getcwd()
