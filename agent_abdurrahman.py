@@ -23,7 +23,7 @@ import json
 from pathlib import Path
 from typing import Any, Dict, List
 
-API_KEY  = os.getenv("OPENAI_API_KEY", "sk-yourkeyhere")
+API_KEY  = os.getenv("OPENAI_API_KEY", "sk-REPLACE_WITH_YOUR_KEY")
 API_BASE = os.getenv("API_BASE", "https://openai.rc.asu.edu/v1")
 MODEL    = os.getenv("MODEL_NAME", "qwen3-30b-a3b-instruct-2507")
 
@@ -346,9 +346,17 @@ def normalize_answer(text: str) -> str:
 # self-consistency or few-shot, applies self-correction, verifies with LLM judge, 
 # and normalizes the final answer.
 
-
 def build_answers(questions: List[Dict[str, Any]]) -> List[Dict[str, str]]:
-    # Resume from existing output file if it exists
+    dev_data_path = Path(
+        "../final_project_tutorial_and_dev_data/"
+        "final_project_tutorial_and_dev_data/"
+        "cse476_final_project_dev_data.json"
+    )
+
+    with dev_data_path.open("r", encoding="utf-8") as fp:
+        dev_data = json.load(fp)
+
+    # Resume from existing checkpoint if it exists
     if OUTPUT_PATH.exists():
         with OUTPUT_PATH.open("r", encoding="utf-8") as fp:
             answers = json.load(fp)
@@ -364,13 +372,30 @@ def build_answers(questions: List[Dict[str, Any]]) -> List[Dict[str, str]]:
         try:
             q_text = question["input"]
 
-            result = call_model_chat_completions(
-                f"Answer this question briefly and accurately: {q_text}",
-                max_tokens=128,
-                temperature=0.0
+            domain = classify_domain(q_text)
+
+            if domain == "math" or domain == "logic":
+                answer = self_consistency(q_text, domain)
+            else:
+                answer = few_shot_answer(q_text, domain, dev_data)
+
+            corrected = self_correct(q_text, answer, domain)
+
+            if not llm_judge(q_text, corrected):
+                corrected = answer_with_cot(q_text, domain)
+
+            cleaned = call_model_chat_completions(
+                (
+                    "Extract only the final answer from this text. "
+                    "No explanation. No sentence unless necessary. "
+                    "If it is multiple choice, keep only the option letter or option text.\n\n"
+                    f"{corrected}"
+                ),
+                temperature=0.0,
+                max_tokens=32
             )
 
-            final_answer = normalize_answer((result["text"] or "").strip())
+            final_answer = normalize_answer((cleaned.get("text") or corrected).strip())
 
             answers.append({"output": final_answer})
 
@@ -383,9 +408,8 @@ def build_answers(questions: List[Dict[str, Any]]) -> List[Dict[str, str]]:
                 json.dump(answers, fp, ensure_ascii=False, indent=2)
             print(f"Checkpoint saved at {len(answers)} answers.", flush=True)
 
-        time.sleep(0.1)
+        time.sleep(0.3)
 
-    # Final save
     with OUTPUT_PATH.open("w", encoding="utf-8") as fp:
         json.dump(answers, fp, ensure_ascii=False, indent=2)
 
